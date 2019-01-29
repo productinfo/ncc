@@ -57,6 +57,8 @@ for (const integrationTest of fs.readdirSync(__dirname + "/integration")) {
   // disabled pending https://github.com/zeit/ncc/issues/141
   if (integrationTest.endsWith('loopback.js')) continue;
 
+  if (!integrationTest.endsWith('test.ts')) continue;
+
   const { Writable } = require('stream');
   class StoreStream extends Writable {
     constructor (options) {
@@ -70,6 +72,11 @@ for (const integrationTest of fs.readdirSync(__dirname + "/integration")) {
   }
 
   it(`should execute "ncc run ${integrationTest}"`, async () => {
+    let expectedStdout;
+    try {
+      expectedStdout = fs.readFileSync(`${__dirname}/integration/${integrationTest}.stdout`).toString();
+    }
+    catch (e) {}
     if (global.gc) global.gc();
     const stdout = new StoreStream();
     const stderr = new StoreStream();
@@ -90,6 +97,12 @@ for (const integrationTest of fs.readdirSync(__dirname + "/integration")) {
       if (chunk.toString().startsWith('(node:')) return;
       throw new Error(chunk.toString());
     });
+    if (expectedStdout) {
+      let stdoutStr = '';
+      for (const chunk of stdout.data)
+        stdoutStr += chunk.toString();
+      expect(stdoutStr.startsWith(expectedStdout));
+    }
   });
 }
 
